@@ -1,60 +1,77 @@
+import yfinance as yf
 import pandas as pd
-import numpy as np
+from datetime import datetime
+from datetime import timedelta
+from parseargs import Parseargs
+from getdata import Getdata
 import math
-import functools
 
-class StockStrategy:
-    def __init__(self, start_date, end_date, stock_data_frames):
-        self.start_date = pd.to_datetime(start_date)
-        self.end_date = pd.to_datetime(end_date)
-        self.stock_data_frames = stock_data_frames
+class Strategy:
+    def __init__(self, tickers, start_date, end_date, days, strategy, top_pct):
+        self.tickers = tickers
+        self.strategy = strategy
+        self.start_date = start_date
+        self.end_date = end_date
+        self.days = days
+        self.top_pct = top_pct
 
-    def calculate_momentum(self, lookback_period=12):
-        momentum_list = []
+    def calc_top_pct(self):
+        top_n = int(self.top_pct * len(self.tickers))
+        return top_n
+    
+    def compute_top_stocks (self):
+        """
+        Computes the number of top stocks based on top_pct and rounds up to nearest integer.
+        """
+        num_stocks = len(self.tickers)#number of stocks in the list
+        num_top_stocks = math.ceil(num_stocks * self.top_pct / 100)#number of top stocks based on top_pct and rounded up to nearest integer
+        return num_top_stocks
 
-        for df in self.stock_data_frames:
-            df['date'] = pd.to_datetime(df['date'])
-            df = df.set_index('date')
-            df = df.loc[self.start_date:self.end_date]
-            df['adjusted_price'] = df['price'] - df['dividend']
-            df['return'] = df['adjusted_price'].pct_change()
-            df['momentum'] = df['adjusted_price'].shift(1) / df['adjusted_price'].shift(1 + lookback_period) - 1
-            df = df.reset_index()
-            momentum_list.append(df)
+    def get_data_for_all_tickers(self, start_date):
+        all_data = {}
+        start_date = self.start_date - timedelta(days=365)
+        for ticker in self.tickers:
+            data_obj = Getdata(start_date, self.end_date, ticker)
+            data_df = data_obj.getdata()
+            all_data[ticker] = data_df
+        return all_data
 
-        return momentum_list
+    def calculate_returns(self):
+        all_data = self.get_data_for_all_tickers()
+        returns = {}
+        for ticker, data in all_data.items():
+            start_price = data.iloc[0]['Close']
+            end_price = data.iloc[-1]['Close']
+            stock_return = (end_price - start_price) / start_price
+            returns[ticker] = stock_return
+        return returns
 
-    def calculate_reversal(self, formation_period=12, holding_period=1):
-        reversal_list = []
+    def momentum(self):
+        returns = self.calculate_returns()
+        sorted_returns = sorted(returns.items(), key=lambda item: item[1], reverse=True)
+        top_n = int(self.top_pct * len(self.tickers))
+        top_momentum_stocks = [item[0] for item in sorted_returns[:top_n]]
+        return top_momentum_stocks
 
-        for df in self.stock_data_frames:
-            df['date'] = pd.to_datetime(df['date'])
-            df = df.set_index('date')
-            df = df.loc[self.start_date:self.end_date]
-            df['adjusted_price'] = df['price'] - df['dividend']
-            df['return'] = df['adjusted_price'].pct_change()
-            df['rolling_return'] = df['return'].rolling(window=formation_period).sum()
-            df['reversal'] = -df['rolling_return'].shift(holding_period)
-            df = df.reset_index()
-            reversal_list.append(df)
+    def reversal(self):
+        returns = self.calculate_returns()
+        sorted_returns = sorted(returns.items(), key=lambda item: item[1])
+        top_n = int(self.top_pct * len(self.tickers))
+        top_reversal_stocks = [item[0] for item in sorted_returns[:top_n]]
+        return top_reversal_stocks
 
-        return reversal_list
+if __name__ == '__main__':
+    tickers = ['AAPL', 'MSFT', 'AMZN', 'GOOG', 'FB', 'TSLA', 'BRK-B', 'JPM', 'JNJ', 'V']
+    strategy = 'momentum'
+    start_date = '20200101'
+    end_date = '20201231'
+    top_pct = 0.4
 
-    def select_top_stocks(self, stock_data_list, top_pct):
-        merged_df = functools.reduce(lambda left, right: pd.merge(left, right, on='date', how='outer'), stock_data_list)
-        merged_df.set_index('date', inplace=True)
+    strategy_obj = Strategy(tickers, start_date, end_date, strategy, top_pct)
 
-        col_list = [col for col in merged_df.columns if 'momentum' in col or 'reversal' in col]
-        merged_df['top_stock'] = merged_df[col_list].apply(
-            lambda x: x.nlargest(math.ceil(len(col_list) * top_pct / 100)).idxmin(), axis=1
-        )
-
-        top_stocks_list = []
-        for df in stock_data_list:
-            df = df.set_index('date')
-            col = list(set(df.columns).intersection(set(merged_df['top_stock'].unique())))[0]
-            if col:
-                top_stock_df = df.loc[merged_df['top_stock'] == col]
-                top_stocks_list.append(top_stock_df.reset_index())
-
-        return top_stocks_list
+    if strategy == 'momentum':
+        top_momentum_stocks = strategy_obj.momentum()
+        print("Top momentum stocks:", top_momentum_stocks)
+    elif strategy == 'reversal':
+        top_reversal_stocks = strategy_obj.reversal()
+        print("Top reversal stocks:", top_reversal_stocks)
