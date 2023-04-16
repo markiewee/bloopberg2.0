@@ -28,6 +28,14 @@ class Strategy:
         return num_top_stocks
 
     def get_data_for_all_tickers(self, start_date):
+        """
+        Saves on runtime by calling API once per stock. 
+        Calls API for each stock in the list of tickers with data_start_date being one year before actual start_date.
+        Allows for maximum of 250 trading days for backtesting.
+        
+        Returns:
+            all_data (dict): Dictionary of dataframes with ticker as key and dataframe as value.
+        """
         all_data = {}
         start_date = self.start_date - timedelta(days=365)
         for ticker in self.tickers:
@@ -36,7 +44,12 @@ class Strategy:
             all_data[ticker] = data_df
         return all_data
 
-    def calculate_returns(self):
+    def calculate_returns(self, start_date, days,strategy):
+        if strategy == "M":
+        backtest_start_date = start_date - timedelta(days=days+20)
+
+
+
         all_data = self.get_data_for_all_tickers()
         returns = {}
         for ticker, data in all_data.items():
