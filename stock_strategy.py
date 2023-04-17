@@ -5,6 +5,7 @@ from datetime import timedelta
 from parseargs import Parseargs
 from getdata import Getdata
 import math
+import heapq
 
 class Strategy:
     def __init__(self, tickers, start_date, end_date, days, strategy, top_pct):
@@ -15,11 +16,8 @@ class Strategy:
         self.days = days
         self.top_pct = top_pct
 
-    def calc_top_pct(self):
-        top_n = int(self.top_pct * len(self.tickers))
-        return top_n
-    
-    def compute_top_stocks (self):
+    def compute_top_stocks (self, top_pct):
+        self.top_pct = top_pct
         """
         Computes the number of top stocks based on top_pct and rounds up to nearest integer.
         """
@@ -27,7 +25,9 @@ class Strategy:
         num_top_stocks = math.ceil(num_stocks * self.top_pct / 100)#number of top stocks based on top_pct and rounded up to nearest integer
         return num_top_stocks
 
-    def get_data_for_all_tickers(self, start_date):
+    def get_data_for_all_tickers(self, start_date, end_date, tickers):
+        self.end_date = end_date
+        self.tickers = tickers
         """
         Saves on runtime by calling API once per stock. 
         Calls API for each stock in the list of tickers with data_start_date being one year before actual start_date.
@@ -37,54 +37,94 @@ class Strategy:
             all_data (dict): Dictionary of dataframes with ticker as key and dataframe as value.
         """
         all_data = {}
-        start_date = self.start_date - timedelta(days=365)
+        start_date_datetime = datetime.strptime(start_date, '%Y%m%d')
+        data_start_date = start_date_datetime - timedelta(days=400)
         for ticker in self.tickers:
-            data_obj = Getdata(start_date, self.end_date, ticker)
+            data_obj = Getdata(data_start_date.strftime('%Y%m%d'), self.end_date, ticker)
             data_df = data_obj.getdata()
             all_data[ticker] = data_df
         return all_data
 
-    def calculate_returns(self, start_date, days,strategy):
-        if strategy == "M":
-        backtest_start_date = start_date - timedelta(days=days+20)
+
+    def calculate_returns(self, start_date, days,strategy,all_data,tickers):
+        """
+        identifies the proper date by using iloc to locate the row of the dataframe that corresponds to the start_date.
+        moves back the correct number of days to get the backtest_start_date and backtest_end_date.
+        ranks stocks in ascending order of returns as a dict with ticker as key and return as value."""
+
+        backtest_returns = {}
+
+        for ticker in tickers:
+            df = all_data[ticker]
+            start_date_row_number = df.loc[df['Date'] == start_date].index
+
+            if len(start_date_row_number) == 0:
+                print(f"Warning: No data found for {ticker} on {start_date}. Skipping...")
+                continue
+            else:
+                start_date_row_number = start_date_row_number[0]
+
+            
+
+            if strategy == "M":
+                backtest_start_date = df.loc[(start_date_row_number - days - 20), 'Date']
+                backtest_end_date = df.loc[(start_date_row_number - 20), 'Date']
+            elif strategy == "R":
+                backtest_start_date = df.loc[(start_date_row_number - days), 'Date']
+                backtest_end_date = df.loc[(start_date_row_number), 'Date']
+
+            backtest_start_date_row_number = df.loc[df['Date'] == backtest_start_date].index.item()
+            backtest_end_date_row_number = df.loc[df['Date'] == backtest_end_date].index.item()
+            backtest_start_price = df.loc[(backtest_start_date_row_number), 'Close']
+            backtest_end_price = df.loc[(backtest_end_date_row_number), 'Close']
+            backtest_return = (backtest_end_price - backtest_start_price) / backtest_start_price
+
+            backtest_returns[ticker] = backtest_return
+        return backtest_returns
 
 
+    def run_strategy(self, start_date, end_date, days, strategy, tickers):
 
-        all_data = self.get_data_for_all_tickers()
-        returns = {}
-        for ticker, data in all_data.items():
-            start_price = data.iloc[0]['Close']
-            end_price = data.iloc[-1]['Close']
-            stock_return = (end_price - start_price) / start_price
-            returns[ticker] = stock_return
-        return returns
+        """
+        Returns a dataframe of each of the stocks. If stock is not in top_pct, return is 0 else return is the return of the stock.
+        """
+        data = self.get_data_for_all_tickers(start_date, end_date, tickers)
 
-    def momentum(self):
-        returns = self.calculate_returns()
-        sorted_returns = sorted(returns.items(), key=lambda item: item[1], reverse=True)
-        top_n = int(self.top_pct * len(self.tickers))
-        top_momentum_stocks = [item[0] for item in sorted_returns[:top_n]]
-        return top_momentum_stocks
+        returns = self.calculate_returns(start_date, days, strategy, data, tickers)
 
-    def reversal(self):
-        returns = self.calculate_returns()
-        sorted_returns = sorted(returns.items(), key=lambda item: item[1])
-        top_n = int(self.top_pct * len(self.tickers))
-        top_reversal_stocks = [item[0] for item in sorted_returns[:top_n]]
-        return top_reversal_stocks
+        num_top_stocks = self.compute_top_stocks(self.top_pct)
 
+        print (num_top_stocks)
+
+        if strategy == 'M':  # selection of the top stocks based on the strategy type
+            selected_stocks = heapq.nlargest(num_top_stocks, returns, key=returns.get)  # sorts the dict key value pairs of the top stocks
+        elif strategy == 'R':  # selection of the bottom stocks based on the strategy type
+            selected_stocks = heapq.nsmallest(num_top_stocks, returns, key=returns.get)  # sorts the dict key value pairs of the bottom stocks
+
+        print(selected_stocks)
+
+        # Create a DataFrame with all the stocks and their returns initialized to 0
+        stock_returns_df = pd.DataFrame(data={'Stock': tickers, 'Return': [0] * len(tickers)})
+
+        # Update the returns for the stocks selected based on the top_pct criteria
+        for stock in selected_stocks:
+            stock_returns_df.loc[stock_returns_df['Stock'] == stock, 'Return'] = returns[stock]
+
+        return stock_returns_df
+        
 if __name__ == '__main__':
-    tickers = ['AAPL', 'MSFT', 'AMZN', 'GOOG', 'FB', 'TSLA', 'BRK-B', 'JPM', 'JNJ', 'V']
-    strategy = 'momentum'
-    start_date = '20200101'
-    end_date = '20201231'
-    top_pct = 0.4
+    tickers = ['AMZN', 'AAPL', 'SPY', 'NFLX']
+    start_date = '20230112'
+    end_date = '20230212'
+    days = 10
+    strategy_type = 'M'
+    top_pct = 50
 
-    strategy_obj = Strategy(tickers, start_date, end_date, strategy, top_pct)
+    strategy_obj = Strategy(tickers, start_date, end_date, days, strategy_type, top_pct)
+    result = strategy_obj.run_strategy(start_date, end_date, days, strategy_type, tickers)
+    print(result)   
 
-    if strategy == 'momentum':
-        top_momentum_stocks = strategy_obj.momentum()
-        print("Top momentum stocks:", top_momentum_stocks)
-    elif strategy == 'reversal':
-        top_reversal_stocks = strategy_obj.reversal()
-        print("Top reversal stocks:", top_reversal_stocks)
+        
+
+
+
