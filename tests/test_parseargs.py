@@ -1,27 +1,42 @@
+from argparse import Namespace
+import sys
 import pytest
-from argparse import ArgumentError
-from my_module import ParseArgs
+sys.path.append('../')
+from parse_args import Parseargs
+"""
+Tests that arguments passed in are parsed correctly.
 
+In the actual program, arguments are also tested to see whether they are valid.
+We test that the functions from args_check are working correctly in the 
+test_args_check.py file.
+"""
+def test_parse_arguments_two():
+    #Tests that arguments are parsed correctly with 2 tickers provided.
+    args = Namespace()
+    args.tickers = ['AAPL', 'GOOG']
+    args.b = '20220101'
+    args.e = '20220301'
+    args.initial_aum = 100000
+    args.strategy_type = 'M'
+    args.days = 30
+    args.top_pct = 20
+    parser = Parseargs()
+    expected = [['AAPL', 'GOOG'], '20220101', '20220301', 100000.0, 'M', 30, 20]
+    actual = parser.parse_arguments(args)
+    assert actual == expected
 
-class TestParseArgs:
-    @staticmethod
-    def test_parse_arguments():
-        # Test valid arguments
-        sys_argv = ['--tickers', 'AAPL,MSFT,KO', '--b', '20220101', '--e', '20220301', '--initial_aum', '100000',
-                    '--strategy1_type', 'M', '--strategy2_type', 'R', '--days1', '10', '--days2', '20', '--top_pct', '20']
-        parser = ParseArgs()
-        assert parser.parse_arguments() == [['AAPL', 'MSFT', 'KO'], '20220101', '20220301', 100000, 'M', 'R', 10, 20, 20]
+def test_parse_arguments_one_ticker():
+    #Tests that arguments are parsed correctly with 1 ticker provided. 
+    args = Namespace()
+    args.tickers = ['KO']
+    args.b = '20220101'
+    args.e = '20220301'
+    args.initial_aum = 100000
+    args.strategy_type = 'M'
+    args.days = 30
+    args.top_pct = 20
+    parser = Parseargs()
+    expected = [['KO'], '20220101', '20220301', 100000.0, 'M', 30, 20]
+    actual = parser.parse_arguments(args)
+    assert actual == expected
 
-        # Test missing required argument
-        sys_argv = ['--tickers', 'AAPL,MSFT,KO', '--e', '20220301', '--initial_aum', '100000',
-                    '--strategy1_type', 'M', '--strategy2_type', 'R', '--days1', '10', '--days2', '20', '--top_pct', '20']
-        parser = ParseArgs()
-        with pytest.raises(ArgumentError):
-            parser.parse_arguments()
-
-        # Test invalid argument
-        sys_argv = ['--tickers', 'AAPL,MSFT,KO', '--b', '20220101', '--e', '20220301', '--initial_aum', '100000',
-                    '--strategy1_type', 'M', '--strategy2_type', 'X', '--days1', '10', '--days2', '20', '--top_pct', '20']
-        parser = ParseArgs()
-        with pytest.raises(SystemExit):
-            parser.parse_arguments()

@@ -2,7 +2,6 @@ import yfinance as yf
 import pandas as pd
 from datetime import datetime
 from datetime import timedelta
-from parseargs import ParseArgs 
 from getdata import Getdata
 import math
 import heapq

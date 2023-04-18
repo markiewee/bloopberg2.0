@@ -1,0 +1,8 @@
+scipy
+pandas
+datetime
+pandas_market_calendars
+matplotlib
+numpy
+yfinance
+parseargs

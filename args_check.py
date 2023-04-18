@@ -1,6 +1,7 @@
 import pandas_market_calendars as mcal
 from datetime import datetime
 import pandas as pd
+import sys
 
 class ArgsCheck:
     """
@@ -8,24 +9,14 @@ class ArgsCheck:
     the yfinance api. Used to check the arguments.
     """
     def date_check(start_date, end_date):
-        
         """
-        Checks the start and end date.
-
-        Args:
-            start_date (str): Start date in format 'YYYYMMDD'.
-            end_date (str): End date in format 'YYYYMMDD'.
-
-        Returns:
-            int: 1 if there are valid trading days between the start and end date, otherwise exits with an error.
-
-        Raises:
-            ValueError: If start_date or end_date is not in the valid format 'YYYYMMDD'.
-            pd.errors.OutOfBoundsDatetime: If start_date or end_date is out of bounds.
+        Checks the start and end date
         """ 
+        if (start_date == None or end_date == None):
+            sys.exit('Error: No beginning or end date provided.')
+            
         if start_date > end_date:
-            print('Error: Start date after end date. Enter a start date before or equal to the end date.')
-            exit()
+            sys.exit('Error: Start date after end date. Enter a start date before or equal to the end date.')
         else:
             try:
                 date_1 = datetime.strptime(start_date, '%Y%m%d').date()
@@ -38,8 +29,7 @@ class ArgsCheck:
                 Example case: start_date = 203/20/299. Then the try statement will fail, so print error.
                 """
 
-                print('Error: Dates entered in invalid format.')
-                exit()
+                sys.exit('Error: Dates entered in invalid format.')
 
 
             today = datetime.today().date()
@@ -49,8 +39,7 @@ class ArgsCheck:
             
             """
             if date_1 > today:
-                print('Error: Start date is in the future.')
-                exit()
+                sys.exit('Error: Start date is in the future.')
             else:
                 nyse = mcal.get_calendar('NYSE')
                 
@@ -76,8 +65,7 @@ class ArgsCheck:
                         Say that the dates are out of bounds, and exit.
                         """
 
-                        print('Error: Dates out of bounds.')
-                        exit()
+                        sys.exit('Error: Dates out of bounds.')
 
                     if len(df_trading_days) == 0:
 
@@ -86,9 +74,7 @@ class ArgsCheck:
                         then no trading days were found. Then, print an error saying there were no trading
                         days found for the specified period.
                         """
-
-                        print('Error: No trading days found for specified period.')
-                        exit()
+                        sys.exit('Error: No trading days found for specified period.')
                     
                     else:
                         #Otherwise the function passes because there are valid dates.
@@ -111,9 +97,7 @@ class ArgsCheck:
 
                         Say that the dates are out of bounds, and exit.
                         """
-
-                        print('Error: Dates out of bounds.')
-                        exit()
+                        sys.exit('Error: Dates out of bounds.')
 
                     if len(df_trading_days) == 0:
                         """
@@ -122,8 +106,7 @@ class ArgsCheck:
                         days found for the specified period.
                         """
 
-                        print('Error: No trading days found for specified period.')
-                        exit()
+                        sys.exit('Error: No trading days found for specified period.')
                     
                     else:
                         #Otherwise the function passes because there are valid dates.
@@ -133,14 +116,18 @@ class ArgsCheck:
         """
         Checks that the user input for initial_aum is greater than 0.
         """
+        if aum == None:
+            sys.exit('Error: Enter a valid AUM.') 
         if aum <= 0:
-            print('Error: Initial AUM must be greater than 0.')
-            exit()
+            sys.exit('Error: Initial AUM must be greater than 0.')
 
     def strategy_check(strategy):
         """
         Checks that the strategy provided is either 'M' or 'R'.
         """
         if strategy not in ['M', 'R']:
-            print("Error: Strategy must be M or R (momentum or reversal).")
-            exit()
+            sys.exit("Error: Strategy must be M or R (momentum or reversal).")
+    
+    def ticker_check(list):
+        if list == None:
+            sys.exit("Error: Please provide at least one ticker.")
