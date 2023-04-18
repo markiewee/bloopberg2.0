@@ -46,7 +46,8 @@ class Strategy:
         return all_data
 
 
-    def calculate_returns(self, start_date, days,strategy,all_data,tickers):
+    def calculate_returns(self, start_date, days, strategy, ticker_data, tickers):
+
         """
         identifies the proper date by using iloc to locate the row of the dataframe that corresponds to the start_date.
         moves back the correct number of days to get the backtest_start_date and backtest_end_date.
@@ -55,7 +56,7 @@ class Strategy:
         backtest_returns = {}
 
         for ticker in tickers:
-            df = all_data[ticker]
+            df = ticker_data[ticker]
             start_date_row_number = df.loc[df['Date'] == start_date].index
 
             if len(start_date_row_number) == 0:
@@ -111,6 +112,49 @@ class Strategy:
             stock_returns_df.loc[stock_returns_df['Stock'] == stock, 'Return'] = returns[stock]
 
         return stock_returns_df
+    
+
+
+
+
+
+    def actual_performance(self, start_date, end_date):
+        backtest_data = self.run_strategy(self.start_date, self.end_date, self.days, self.strategy, self.tickers)
+        stocks_list = []
+        for index, row in backtest_data.iterrows():
+            if row['Return'] > 0:
+                stocks_list.append(row['Stock'])
+
+        start_date_formatted = datetime.strptime(start_date, "%Y%m%d").strftime("%Y-%m-%d")
+        end_date_formatted = datetime.strptime(end_date, "%Y%m%d").strftime("%Y-%m-%d")
+
+        stock_returns = []
+        total_return = 0
+        num_stocks = len(stocks_list)
+
+        for stock in stocks_list:
+            stock_data = yf.download(stock, start=start_date_formatted, end=end_date_formatted)
+            ticker = yf.Ticker(stock)
+            dividends = ticker.dividends[start_date_formatted:end_date_formatted].sum()
+
+            if not stock_data.empty:
+                dividend_adjusted_return = (stock_data['Close'][-1] - stock_data['Close'][0] + dividends) / stock_data['Close'][0]
+                stock_return = dividend_adjusted_return
+                stock_returns.append({'Stock': stock, 'Return': stock_return})
+                total_return += stock_return
+
+        if num_stocks > 0:
+            weighted_return = total_return / num_stocks
+        else:
+            weighted_return = 0
+
+        result_df = pd.DataFrame(stock_returns, columns=['Stock', 'Return'])
+        result_df.loc['Weighted Return'] = ['-', weighted_return]
+        
+        return weighted_return
+
+
+        
         
 if __name__ == '__main__':
     tickers = ['AMZN', 'AAPL', 'SPY', 'NFLX']
@@ -122,7 +166,8 @@ if __name__ == '__main__':
 
     strategy_obj = Strategy(tickers, start_date, end_date, days, strategy_type, top_pct)
     result = strategy_obj.run_strategy(start_date, end_date, days, strategy_type, tickers)
-    print(result)   
+    result_1 = strategy_obj.actual_performance(start_date, end_date)
+    print(result_1)   
 
         
 
