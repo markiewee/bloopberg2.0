@@ -1,8 +1,7 @@
 import argparse
 from args_check import ArgsCheck
-import math
 
-class Parseargs:
+class ParseArgs:
     """
     A class which parses the arguments passed into a program.
     """
@@ -53,9 +52,10 @@ class Parseargs:
         return [tickers, args.b, args.e, args.initial_aum, args.strategy1_type, args.strategy2_type, args.days1, args.days2, args.top_pct]
 
 if __name__ == '__main__':
-    parser = Parseargs()
+    parser = ParseArgs()
     list_arguments = parser.parse_arguments()
     ArgsCheck.date_check(list_arguments[1], list_arguments[2])
     ArgsCheck.strategy_check(list_arguments[4])
     ArgsCheck.strategy_check(list_arguments[5])
     print(list_arguments)
+

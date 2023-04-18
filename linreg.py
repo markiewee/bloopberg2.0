@@ -7,41 +7,44 @@ import stock_strategy
 
 class Linreg:
 
-    def __init__(self, tickers, start_date, end_date, days, strategy, top_pct):
+    def __init__(self, tickers, start_date, end_date, days_1, days_2, strategy_1, strategy_2, top_pct,aum):
         self.tickers = tickers
-        self.strategy = strategy
+        self.strategy_1 = strategy_1
+        self.strategy_2 = strategy_2
+        self.days_1 = days_1
+        self.days_2 = days_2
+        self.aum = aum
+
         self.start_date = start_date
         self.end_date = end_date
-        self.days = days
         self.top_pct = top_pct
-        self.Strategy = stock_strategy.Strategy(tickers, start_date, end_date, days, strategy, top_pct)
+        self.Strategy = stock_strategy.Strategy(tickers, start_date, end_date, 10, "M",top_pct)
 
     def merge_data(self):
         """Merges momentum and reversal data frames for each stock."""
         ticker_data = self.Strategy.get_data_for_all_tickers(self.start_date, self.end_date, self.tickers)
 
-        momentum_returns_df = self.Strategy.run_strategy(self.start_date, self.end_date, self.days, 'M', self.tickers)
-        reversal_returns_df = self.Strategy.run_strategy(self.start_date, self.end_date, self.days, 'R', self.tickers)
+        strategy_1_returns_df = self.Strategy.run_strategy(self.start_date, self.end_date, self.days_1, self.strategy_1, self.tickers)
+        strategy_2_returns_df = self.Strategy.run_strategy(self.start_date, self.end_date, self.days_2, self.strategy_2, self.tickers)
 
-        merged_df = pd.merge(momentum_returns_df, reversal_returns_df, on='Stock', how='inner')
-        merged_df = merged_df.rename(columns={'Return_x': 'Return_momentum', 'Return_y': 'Return_reversal'})
-        print(merged_df)
+
+        merged_df = pd.merge(strategy_1_returns_df,strategy_2_returns_df, on='Stock', how='inner')
+        
+
+        actual_performance = self.Strategy.actual_performance(self.start_date, self.end_date)
+        merged_df = pd.merge(merged_df, actual_performance, on='Stock', how='inner')
+
+        merged_df = merged_df.rename(columns={'Return_x': 'Return_strategy_1', 'Return_y': 'Return_strategy_2', 'Return': 'Return_actual'})
+
+        #print(merged_df)
 
         return merged_df
-
+    
     def predict_performance(self):
-        # Merge momentum and reversal data frames
         merged_df = self.merge_data()
 
-        # Get actual performance
-        actual_performance = self.Strategy.actual_performance(self.start_date, self.end_date)
-
-        # Merge actual performance with merged_df
-        data = pd.merge(merged_df, actual_performance, on='Stock', how='inner')
-        
-        # Split the dataset into features (X) and target (y)
-        X = data[['Return_momentum', 'Return_reversal']]
-        y = data['Return']
+        X = merged_df[['Return_strategy_1', 'Return_strategy_2']]
+        y = merged_df['Return_actual']
 
         # Fit a linear regression model
         model = LinearRegression()
@@ -49,20 +52,31 @@ class Linreg:
 
         # Predict stock returns
         predicted_returns = model.predict(X)
-        data['Predicted_Return'] = predicted_returns
+        merged_df['Predicted_Return'] = predicted_returns
 
-        return data
+        return merged_df
 
     def perform_strategy(self):
         """Fits a multiple linear regression model to predict stock returns and selects the top stocks based on the --top_pct score."""
 
         # Predict stock returns using the linear regression model
-        predicted_data = self.predict_performance()
+        predicted_data_df = self.predict_performance()
 
         # Select the top stocks based on the predicted returns
-        top_stocks = predicted_data.nlargest(int(len(predicted_data) * self.top_pct), 'Predicted_Return')
+        top_stocks = self.Strategy.compute_top_stocks(self.top_pct)
+        print(predicted_data_df)
 
-        return top_stocks
+        sorted_df = predicted_data_df.sort_values(by='Predicted_Return', ascending=False)
+    
+        top_pct_df = sorted_df.head(top_stocks)
+    
+        average_return = top_pct_df['Return_actual'].mean()
+        print(average_return)
+        updated_aum = (self.aum * average_return)+self.aum
+    
+        return updated_aum
+
+        
 
 import matplotlib.pyplot as plt
 
@@ -70,12 +84,15 @@ import matplotlib.pyplot as plt
 tickers = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA']
 start_date = '20210105'
 end_date = '20211228'
-days = 30
-strategy = 'M'
-top_pct = 0.5
+days_1 = 30
+day_2 =60
+strategy_1 = 'M'
+strategy_2 = 'R'
+top_pct = 30
+aum = 100000
 
 # Create an instance of the Linreg class
-linreg = Linreg(tickers, start_date, end_date, days, strategy, top_pct)
+linreg = Linreg(tickers, start_date, end_date, days_1, day_2, strategy_1, strategy_2, top_pct,aum)
 
 # Perform the strategy and get the top stocks
 top_stocks = linreg.perform_strategy()

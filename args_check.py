@@ -8,8 +8,20 @@ class ArgsCheck:
     the yfinance api. Used to check the arguments.
     """
     def date_check(start_date, end_date):
+        
         """
-        Checks the start and end date
+        Checks the start and end date.
+
+        Args:
+            start_date (str): Start date in format 'YYYYMMDD'.
+            end_date (str): End date in format 'YYYYMMDD'.
+
+        Returns:
+            int: 1 if there are valid trading days between the start and end date, otherwise exits with an error.
+
+        Raises:
+            ValueError: If start_date or end_date is not in the valid format 'YYYYMMDD'.
+            pd.errors.OutOfBoundsDatetime: If start_date or end_date is out of bounds.
         """ 
         if start_date > end_date:
             print('Error: Start date after end date. Enter a start date before or equal to the end date.')

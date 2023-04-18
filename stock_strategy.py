@@ -2,7 +2,7 @@ import yfinance as yf
 import pandas as pd
 from datetime import datetime
 from datetime import timedelta
-from parseargs import Parseargs
+from parseargs import ParseArgs 
 from getdata import Getdata
 import math
 import heapq
@@ -73,6 +73,9 @@ class Strategy:
             elif strategy == "R":
                 backtest_start_date = df.loc[(start_date_row_number - days), 'Date']
                 backtest_end_date = df.loc[(start_date_row_number), 'Date']
+            else:
+                raise ValueError(f"Invalid strategy '{strategy}'. Strategy must be either 'M' or 'R'.")
+
 
             backtest_start_date_row_number = df.loc[df['Date'] == backtest_start_date].index.item()
             backtest_end_date_row_number = df.loc[df['Date'] == backtest_end_date].index.item()
@@ -93,9 +96,8 @@ class Strategy:
 
         returns = self.calculate_returns(start_date, days, strategy, data, tickers)
 
-        num_top_stocks = self.compute_top_stocks(self.top_pct)
+        num_top_stocks = len(tickers)
 
-        print (num_top_stocks)
 
         if strategy == 'M':  # selection of the top stocks based on the strategy type
             selected_stocks = heapq.nlargest(num_top_stocks, returns, key=returns.get)  # sorts the dict key value pairs of the top stocks
@@ -129,29 +131,18 @@ class Strategy:
         end_date_formatted = datetime.strptime(end_date, "%Y%m%d").strftime("%Y-%m-%d")
 
         stock_returns = []
-        total_return = 0
-        num_stocks = len(stocks_list)
 
         for stock in stocks_list:
             stock_data = yf.download(stock, start=start_date_formatted, end=end_date_formatted)
-            ticker = yf.Ticker(stock)
-            dividends = ticker.dividends[start_date_formatted:end_date_formatted].sum()
-
+            
             if not stock_data.empty:
-                dividend_adjusted_return = (stock_data['Close'][-1] - stock_data['Close'][0] + dividends) / stock_data['Close'][0]
-                stock_return = dividend_adjusted_return
+                stock_return = (stock_data['Close'][-1] - stock_data['Close'][0])/stock_data['Close'][0]
                 stock_returns.append({'Stock': stock, 'Return': stock_return})
-                total_return += stock_return
-
-        if num_stocks > 0:
-            weighted_return = total_return / num_stocks
-        else:
-            weighted_return = 0
 
         result_df = pd.DataFrame(stock_returns, columns=['Stock', 'Return'])
-        result_df.loc['Weighted Return'] = ['-', weighted_return]
         
-        return weighted_return
+        return result_df
+
 
 
         
