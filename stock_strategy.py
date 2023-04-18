@@ -50,57 +50,70 @@ class Strategy:
         """
         identifies the proper date by using iloc to locate the row of the dataframe that corresponds to the start_date.
         moves back the correct number of days to get the backtest_start_date and backtest_end_date.
-        ranks stocks in ascending order of returns as a dict with ticker as key and return as value."""
+        ranks stocks in ascending order of returns as a dict with ticker as key and return as value.
+        """
 
         backtest_returns = {}
 
         for ticker in tickers:
-            df = ticker_data[ticker]
-            start_date_row_number = df.loc[df['Date'] == start_date].index
+            #Read in the data for the ticker in the list of dataframes containing our data.
+            #Reset index because Date is the label for the index column.
+            df = ticker_data[ticker].reset_index()
+            start_date_index = df.loc[df['Date'] == start_date].index
 
-            if len(start_date_row_number) == 0:
+            if len(start_date_index) == 0:
                 print(f"Warning: No data found for {ticker} on {start_date}. Skipping...")
                 continue
             else:
-                start_date_row_number = start_date_row_number[0]
-
-            
+                #If we found data, the row number of the start date is the first value in the index of start_date_index.
+                start_date_row_number = start_date_index[0]
 
             if strategy == "M":
+                #Lookback period for momentum needs to factor in additional 20 day gap to avoid reversal effect.
                 backtest_start_date = df.loc[(start_date_row_number - days - 20), 'Date']
                 backtest_end_date = df.loc[(start_date_row_number - 20), 'Date']
-            elif strategy == "R":
+
+            else:
+                #Means that strategy was reversal.
+                #Define the backtest start and end date accordingly.
                 backtest_start_date = df.loc[(start_date_row_number - days), 'Date']
                 backtest_end_date = df.loc[(start_date_row_number), 'Date']
-            else:
-                raise ValueError(f"Invalid strategy '{strategy}'. Strategy must be either 'M' or 'R'.")
-
 
             backtest_start_date_row_number = df.loc[df['Date'] == backtest_start_date].index.item()
             backtest_end_date_row_number = df.loc[df['Date'] == backtest_end_date].index.item()
-            backtest_start_price = df.loc[(backtest_start_date_row_number), 'Close']
-            backtest_end_price = df.loc[(backtest_end_date_row_number), 'Close']
+            #Find start date closing price (the price the ticker begins the backtest at)
+            backtest_start_price = df.loc[backtest_start_date_row_number, 'Close']
+            #Get end date closing price (the price the ticker finishes the backtest at)
+            backtest_end_price = df.loc[backtest_end_date_row_number, 'Close']
+            #Use the two previous values to calculate returns
             backtest_return = (backtest_end_price - backtest_start_price) / backtest_start_price
 
+            #Append returns to the dictionary backtest_returns with key ticker and value return for the ticker.
             backtest_returns[ticker] = backtest_return
         return backtest_returns
 
 
     def run_strategy(self, start_date, end_date, days, strategy, tickers):
-
         """
-        Returns a dataframe of each of the stocks. If stock is not in top_pct, return is 0 else return is the return of the stock.
+        Runs a momentum OR reversal strategy over a lookback period for a list of tickers, calculating the portfolio
+        return for the selected stocks.
+
+        Args: start_date, end_date, days, strategy, tickers.
+
+        Returns: a dataframe of each of the stocks. If stock is not in top_pct, return is 0.
+        Otherwise, return is the return of the stock.
         """
         data = self.get_data_for_all_tickers(start_date, end_date, tickers)
 
         returns = self.calculate_returns(start_date, days, strategy, data, tickers)
 
-        num_top_stocks = len(tickers)
+        #Calculate the number of top stocks
+        num_top_stocks = self.compute_top_stocks(top_pct = self.top_pct)
 
-
-        if strategy == 'M':  # selection of the top stocks based on the strategy type
+        if strategy == 'M':  # selection of the top stocks based on momentum
             selected_stocks = heapq.nlargest(num_top_stocks, returns, key=returns.get)  # sorts the dict key value pairs of the top stocks
-        elif strategy == 'R':  # selection of the bottom stocks based on the strategy type
+            
+        else:  # selection of the bottom stocks based on reversal
             selected_stocks = heapq.nsmallest(num_top_stocks, returns, key=returns.get)  # sorts the dict key value pairs of the bottom stocks
 
         print(selected_stocks)
@@ -114,10 +127,6 @@ class Strategy:
 
         return stock_returns_df
     
-
-
-
-
 
     def actual_performance(self, start_date, end_date):
         backtest_data = self.run_strategy(self.start_date, self.end_date, self.days, self.strategy, self.tickers)
@@ -143,8 +152,6 @@ class Strategy:
         return result_df
 
 
-
-        
         
 if __name__ == '__main__':
     tickers = ['AMZN', 'AAPL', 'SPY', 'NFLX']
@@ -152,12 +159,15 @@ if __name__ == '__main__':
     end_date = '20230212'
     days = 10
     strategy_type = 'M'
-    top_pct = 50
+    top_pct = 70
 
     strategy_obj = Strategy(tickers, start_date, end_date, days, strategy_type, top_pct)
     result = strategy_obj.run_strategy(start_date, end_date, days, strategy_type, tickers)
+    print(result)
     result_1 = strategy_obj.actual_performance(start_date, end_date)
     print(result_1)   
+    # test_calculate_returns = Strategy.calculate_returns(tickers, start_date, end_date, days, strategy_type, top_pct)
+    # print(test_calculate_returns)
 
         
 
