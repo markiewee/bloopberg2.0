@@ -116,8 +116,6 @@ class Strategy:
         else:  # selection of the bottom stocks based on reversal
             selected_stocks = heapq.nsmallest(num_top_stocks, returns, key=returns.get)  # sorts the dict key value pairs of the bottom stocks
 
-        print(selected_stocks)
-
         # Create a DataFrame with all the stocks and their returns initialized to 0
         stock_returns_df = pd.DataFrame(data={'Stock': tickers, 'Return': [0] * len(tickers)})
 

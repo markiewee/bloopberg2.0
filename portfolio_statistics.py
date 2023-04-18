@@ -39,7 +39,7 @@ class PortfolioStatistics:
         – Final AUM 
         – Return
         – ARR
-        – Average and Maximum AUM
+        – Average and Maximum AUM
         – Profit and loss
         – Daily return (Average)
         – Standard deviation

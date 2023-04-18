@@ -53,7 +53,11 @@ class Linreg:
 
 
     def perform_strategy(self):
-        """Fits a multiple linear regression model to predict stock returns and selects the top stocks based on the --top_pct score."""
+        """Fits a multiple linear regression model to predict stock returns 
+        and selects the top stocks based on the --top_pct score.
+        """
+        
+        #Get a list of the last trading days of each month for the specified period. These will be used in our for-loop.
         nyse = mcal.get_calendar('NYSE')
         schedule = nyse.schedule(start_date=self.start_date, end_date=self.end_date)
         last_trading_days = schedule.resample('M', closed='right', label='right').last().index
