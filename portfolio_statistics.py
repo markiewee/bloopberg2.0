@@ -2,10 +2,13 @@ import numpy as np
 import scipy.stats as stats
 from linreg import Linreg
 import pandas as pd
+import pandas_market_calendars as mcal
 
 
 class PortfolioStatistics:
-
+    """
+    Calculates portfolio statistics such as linear regression coefficients, average rate of return, final AUM, etc.
+    """
     def __init__(self, linreg_instance):
         self.linreg = linreg_instance
         self.top_stocks = linreg_instance.perform_strategy()[1]
@@ -14,13 +17,36 @@ class PortfolioStatistics:
         self.end_date = pd.to_datetime(self.linreg.end_date)
         self.aum = self.linreg.aum
 
-    def adjust_dates(self):
+    def adjust_dates(self) -> None:
+        """
+        Adjusts for trading dates based on NYSE calendar.
+
+        This function will adjust the start_date and end_date attributes to be valid trading days.
+        """
         nyse = mcal.get_calendar('NYSE')
         schedule = nyse.schedule(start_date=self.start_date, end_date=self.end_date)
         self.start_date = schedule.index[0]
         self.end_date = schedule.index[-1]
 
     def calculate_statistics(self):
+        """
+        Args: None
+
+        Returns: A dictionary containing the statistics requested:
+        - Number of calendar days between the first and last trading day.
+        – Total stock return
+        – Initial AUM
+        – Final AUM 
+        – Return
+        – ARR
+        – Average and Maximum AUM
+        – Profit and loss
+        – Daily return (Average)
+        – Standard deviation
+        – Sharpe ratio
+        – Linear regression coefficients
+        – Linear regression t-values
+        """
         self.adjust_dates()
         num_days = (self.end_date - self.start_date).days
         total_return = self.top_stocks['Return_actual'].sum()
